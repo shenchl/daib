@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>待办事项</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4a90d9">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="待办">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; background: #f5f5f5; color: #333; min-height: 100vh; display: flex; justify-content: center; padding: 40px 16px; }
+  .app { width: 100%; max-width: 500px; }
+  h1 { font-size: 1.6rem; margin-bottom: 20px; text-align: center; }
+  .input-row { display: flex; gap: 8px; margin-bottom: 24px; }
+  .input-row input { flex: 1; padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; outline: none; transition: border-color .2s; }
+  .input-row input:focus { border-color: #4a90d9; }
+  .input-row button { padding: 10px 20px; background: #4a90d9; color: #fff; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; transition: background .2s; }
+  .input-row button:hover { background: #3a7bc8; }
+  .filters { display: flex; gap: 6px; margin-bottom: 16px; justify-content: center; }
+  .filters button { padding: 4px 14px; border: 1px solid #ddd; background: #fff; border-radius: 14px; font-size: .85rem; cursor: pointer; transition: all .2s; }
+  .filters button.active { border-color: #4a90d9; background: #4a90d9; color: #fff; }
+  ul { list-style: none; }
+  li { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #fff; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.06); transition: opacity .2s; }
+  li.done .text { text-decoration: line-through; color: #aaa; }
+  li .text { flex: 1; word-break: break-word; }
+  li .check { width: 20px; height: 20px; border: 2px solid #ccc; border-radius: 50%; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all .2s; }
+  li.done .check { border-color: #4a90d9; background: #4a90d9; }
+  li.done .check::after { content: "✓"; color: #fff; font-size: 12px; }
+  li .del { background: none; border: none; color: #ccc; font-size: 1.2rem; cursor: pointer; padding: 0 4px; transition: color .2s; }
+  li .del:hover { color: #e55; }
+  .empty { text-align: center; color: #aaa; padding: 40px 0; font-size: .95rem; }
+  .stats { text-align: center; color: #999; font-size: .85rem; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>待办事项</h1>
+  <div class="input-row">
+    <input id="inp" placeholder="添加新任务..." autofocus>
+    <button onclick="addTodo()">添加</button>
+  </div>
+  <div class="filters">
+    <button class="active" data-f="all">全部</button>
+    <button data-f="active">未完成</button>
+    <button data-f="done">已完成</button>
+  </div>
+  <ul id="list"></ul>
+  <div class="stats" id="stats"></div>
+</div>
+<script>
+let todos = JSON.parse(localStorage.getItem('todos') || '[]');
+let filter = 'all';
+
+const $ = id => document.getElementById(id);
+const save = () => localStorage.setItem('todos', JSON.stringify(todos));
+
+function addTodo() {
+  const text = $('inp').value.trim();
+  if (!text) return;
+  todos.push({ id: Date.now(), text, done: false });
+  $('inp').value = '';
+  save(); render();
+}
+
+function toggle(id) {
+  const t = todos.find(t => t.id === id);
+  if (t) t.done = !t.done;
+  save(); render();
+}
+
+function remove(id) {
+  todos = todos.filter(t => t.id !== id);
+  save(); render();
+}
+
+function render() {
+  const list = $('list');
+  const show = todos.filter(t => filter === 'all' ? true : filter === 'done' ? t.done : !t.done);
+  if (!show.length) {
+    list.innerHTML = '<div class="empty">' + (todos.length ? '当前分类暂无任务' : '暂无任务，添加一个吧') + '</div>';
+  } else {
+    list.innerHTML = show.map(t =>
+      `<li class="${t.done ? 'done' : ''}">
+        <div class="check" onclick="toggle(${t.id})"></div>
+        <span class="text">${t.text.replace(/</g,'&lt;')}</span>
+        <button class="del" onclick="remove(${t.id})">×</button>
+      </li>`
+    ).join('');
+  }
+  const done = todos.filter(t => t.done).length;
+  $('stats').textContent = todos.length ? `共 ${todos.length} 项，已完成 ${done} 项` : '';
+}
+
+$('inp').addEventListener('keydown', e => { if (e.key === 'Enter') addTodo(); });
+
+document.querySelectorAll('.filters button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filter = btn.dataset.f;
+    render();
+  });
+});
+
+render();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+</script>
+</body>
+</html>
